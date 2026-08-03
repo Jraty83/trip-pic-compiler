@@ -1,0 +1,18 @@
+# Copy to preferences.yaml (gitignored) or let the CLI create it interactively.
+# This file is the personalized "taste engine" input — not hardcoded in code.
+
+target_duration_min: 45
+image_seconds: 8
+day_label_format: "%d/%m/%Y"
+
+# Written by you; used by the curation step (heuristic now, vision API later).
+taste_prompt: |
+  Suosi: maisemat, ihmiset luonnollisessa tilanteessa, kultainen hetki,
+  tarinalliset videot, vaihtelevat paikat ja päivät.
+  Vältä: suttuiset close-upit, toistuvat selfie-räiskeet, lähes identtiset
+  burst-kuvat, epäolennaiset ruokakuvat, ylieksonoituneet otokset.
+
+# Sanitization knobs (generic engine; tune if needed)
+blur_threshold: 80.0
+duplicate_hash_distance: 8
+max_burst_keep: 1

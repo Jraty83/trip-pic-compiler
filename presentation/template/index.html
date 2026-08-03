@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="fi">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Trip Pic Compiler — Presentation</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div id="stage">
+      <div id="day-label" hidden></div>
+      <img id="image-slide" alt="" hidden />
+      <video id="video-slide" playsinline hidden></video>
+      <div id="empty" hidden>Ei dioja — aja pipeline uudelleen.</div>
+    </div>
+
+    <footer id="chrome">
+      <div id="progress"><div id="progress-bar"></div></div>
+      <div id="controls">
+        <button type="button" id="btn-prev" title="Edellinen">‹</button>
+        <button type="button" id="btn-play" title="Play / Pause">▶</button>
+        <button type="button" id="btn-next" title="Seuraava">›</button>
+        <span id="counter">0 / 0</span>
+        <span id="clock"></span>
+      </div>
+    </footer>
+
+    <script src="app.js"></script>
+  </body>
+</html>
