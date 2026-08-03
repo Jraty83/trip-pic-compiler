@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 import shutil
 import subprocess
 import time
@@ -171,18 +172,70 @@ def _video_size_duration(probe: dict) -> Tuple[int, int, float]:
     return width, height, duration
 
 
-def _video_captured_at(probe: dict, path: Path) -> datetime:
-    fmt = probe.get("format") or {}
-    tags = fmt.get("tags") or {}
-    for key in ("creation_time", "com.apple.quicktime.creationdate"):
-        raw = tags.get(key)
-        if not raw:
-            continue
-        cleaned = str(raw).replace("Z", "+00:00")
+def _parse_video_timestamp(raw: object) -> Optional[datetime]:
+    """
+    Parse video container timestamps into naive local wall-clock time.
+
+    iPhone/QuickTime often has:
+      creation_time = 2026-07-25T15:07:37.000000Z   (UTC)
+      date          = 2026-07-25T18:07:37+0300       (local)
+
+    Photo EXIF is local wall-clock without TZ. Prefer offset-aware local tags,
+    and convert UTC tags to local so videos don't sort hours too early.
+    """
+    if raw is None:
+        return None
+    text = str(raw).strip()
+    if not text:
+        return None
+    # Normalize Zulu and +0300 → +03:00 for fromisoformat
+    text = text.replace("Z", "+00:00")
+    text = re.sub(r"([+-]\d{2})(\d{2})$", r"\1:\2", text)
+    # Drop sub-seconds for simpler parse if present before offset
+    try:
+        dt = datetime.fromisoformat(text)
+    except ValueError:
+        # Sometimes "2026-07-25 18:07:37"
         try:
-            return datetime.fromisoformat(cleaned).replace(tzinfo=None)
+            return datetime.strptime(text[:19], "%Y-%m-%d %H:%M:%S")
         except ValueError:
-            continue
+            return None
+
+    if dt.tzinfo is None:
+        return dt
+
+    offset = dt.utcoffset()
+    if offset is not None and offset.total_seconds() == 0:
+        # UTC → local timezone wall clock (matches camera EXIF for same trip TZ)
+        return dt.astimezone().replace(tzinfo=None)
+
+    # Offset-aware local (e.g. +03:00): keep the wall-clock components
+    return datetime(dt.year, dt.month, dt.day, dt.hour, dt.minute, dt.second, dt.microsecond)
+
+
+def _collect_video_tags(probe: dict) -> dict:
+    tags = {}
+    fmt = probe.get("format") or {}
+    tags.update(fmt.get("tags") or {})
+    for stream in probe.get("streams") or []:
+        st = stream.get("tags") or {}
+        for key, value in st.items():
+            tags.setdefault(key, value)
+    return tags
+
+
+def _video_captured_at(probe: dict, path: Path) -> datetime:
+    tags = _collect_video_tags(probe)
+    # Prefer local-offset "date" over UTC creation_time
+    for key in (
+        "date",
+        "com.apple.quicktime.creationdate",
+        "creation_time",
+        "com.apple.quicktime.creation_time",
+    ):
+        parsed = _parse_video_timestamp(tags.get(key))
+        if parsed:
+            return parsed
     return _file_mtime(path)
 
 
