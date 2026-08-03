@@ -25,26 +25,43 @@ body {
   overflow: hidden;
 }
 
+/*
+  Stage is a fixed viewport region. Media is absolutely centered with
+  object-fit: contain so portrait/landscape keep their ratio (letterbox),
+  never crop/zoom to fill width.
+*/
 #stage {
   position: relative;
-  flex: 1;
-  display: grid;
-  place-items: center;
+  flex: 1 1 auto;
+  min-height: 0;
+  width: 100%;
+  overflow: hidden;
   background:
     radial-gradient(ellipse at 30% 20%, #1a1c22 0%, transparent 55%),
     radial-gradient(ellipse at 80% 80%, #16141a 0%, transparent 50%),
     var(--bg);
-  min-height: 0;
 }
 
 #image-slide,
 #video-slide {
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  display: block;
   max-width: 100%;
   max-height: 100%;
   width: auto;
   height: auto;
   object-fit: contain;
+  object-position: center center;
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.45);
+}
+
+#image-slide[hidden],
+#video-slide[hidden],
+#empty[hidden],
+#day-label[hidden] {
+  display: none !important;
 }
 
 #day-label {
@@ -64,14 +81,20 @@ body {
 }
 
 #empty {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
   color: var(--muted);
   font-size: 1.1rem;
 }
 
 #chrome {
+  flex: 0 0 auto;
   background: var(--chrome);
   border-top: 1px solid rgba(242, 239, 232, 0.08);
   backdrop-filter: blur(10px);
+  z-index: 3;
 }
 
 #progress {

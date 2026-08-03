@@ -1,30 +1,30 @@
 # Trip Pic Compiler
 
-Paikallinen moottori matkakuville ja -videoille: normalisoi, sanitoi, kuratoi makusi mukaan ja tuottaa HTML-esitysdraftin (30–60 min).
+Local engine for trip photos and videos: normalize, sanitize, curate to your taste, and produce an HTML presentation draft (typically 30–60 minutes).
 
-**Julkinen repo = vain koodi.** Kuvat, videot, `preferences.yaml` ja API-avaimet pysyvät koneellasi (gitignore).
+**Public repo = code only.** Your media, `preferences.yaml`, and API keys stay on your machine (gitignored).
 
-Toimii **macOS** ja **Windows** — sama Python-CLI molemmissa.
-
----
-
-## Mitä pipeline tekee
-
-| Vaihe | Tyyppi | Mitä |
-|--------|--------|------|
-| Ingest | geneerinen | Löytää kuvat/videot kansiosta |
-| Normalisointi | geneerinen | Orientointi, EXIF/aika, videot → mp4 + ääni |
-| Sanitointi | geneerinen | Suttuisten poisto, near-duplikaatit |
-| Preferenssit | **personoitu** | Sinä annat makupromptin + keston |
-| Kuratointi | moottori + maku | v0.1: heuristic + päiväpeitto; `taste_prompt` valmiina vision-API:lle |
-| Esitys | geneerinen | HTML-slideshow, ~8 s/kuva, videot äänellä, päiväleima `dd/mm/yyyy` |
+Works on **macOS** and **Windows** with the same Python CLI.
 
 ---
 
-## Vaatimukset
+## Pipeline stages
+
+| Stage | Type | What it does |
+|--------|------|----------------|
+| Ingest | generic | Finds images/videos in a folder (or unpacks a `.zip` first) |
+| Normalize | generic | Orientation, EXIF/time, videos → mp4 with audio |
+| Sanitize | generic | Blur removal, near-duplicate removal |
+| Preferences | **personalized** | You provide taste prompt + target duration |
+| Curate | engine + taste | v0.1 heuristic + day coverage; `taste_prompt` stored for vision API later |
+| Present | generic | HTML slideshow, ~8 s/image, videos with audio, day label `dd/mm/yyyy` |
+
+---
+
+## Requirements
 
 - Python **3.9+**
-- **ffmpeg** + **ffprobe** (suositus videoille)
+- **ffmpeg** + **ffprobe** (recommended for video)
 
 ### ffmpeg
 
@@ -37,14 +37,15 @@ brew install ffmpeg
 ```bash
 winget install ffmpeg
 ```
-Varmista että `ffmpeg` ja `ffprobe` löytyvät PATH:sta (uusi terminaali asennuksen jälkeen).
+
+Confirm `ffmpeg` and `ffprobe` are on your PATH (open a new terminal after install).
 
 ---
 
-## Asennus
+## Setup
 
 ```bash
-git clone <tämän-repon-url>
+git clone <this-repo-url>
 cd trip-pic-compiler
 
 python3 -m venv .venv
@@ -58,98 +59,127 @@ source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-Tarkista ympäristö:
+Check the environment:
 ```bash
 python -m pipeline doctor
 ```
 
 ---
 
-## Romanian (tai muun) matkan pilotointi
+## Pilot a trip (e.g. Romania)
 
-1. Lataa albumi Google Kuvista koneelle.
-2. Kopioi tiedostot esim. kansioon:
+1. Download the album from Google Photos to your machine.
+2. Either extract into a folder, or keep the archive as-is:
    ```text
-   input/romania-2026/
+   input/romania-2026/          # extracted files
+   # or
+   input/romania.zip            # untouched archive
    ```
-3. Aja putki (kysyy makua ja kestoa interaktiivisesti):
+3. Run the pipeline (asks for taste + duration interactively):
    ```bash
    python -m pipeline run input/romania-2026
    ```
-4. Avaa selaimessa:
+   Or point at a zip directly:
+   ```bash
+   python -m pipeline run input/romania.zip
+   ```
+   Zips inside `input/` are also auto-extracted to `output/<name>/_extracted/`.
+   **Your original files and `.zip` under `input/` are never modified** — safe to re-run or re-download raw data from the cloud.
+4. Open in a browser:
    ```text
    output/romania-2026/presentation/index.html
    ```
 
-Ilman kysymyksiä (käyttää `preferences.yaml` tai examplea):
+Non-interactive (uses `preferences.yaml` or the example file):
 ```bash
 python -m pipeline run input/romania-2026 -y
 ```
 
-Pelkkä preferenssien luonti/päivitys:
+Create/update preferences only:
 ```bash
 python -m pipeline prefs
 ```
 
+### Progress & ETA
+
+During long stages a **sticky status panel** stays at the bottom with:
+
+- `pipeline elapsed`
+- `ETA total → draft`
+
+File-level lines scroll above it. Sanitize logs sparsely (every 25 items + rejects).
+
+### Viewing the draft
+
+Chrome blocks `fetch("timeline.json")` on `file://`. The generator **embeds** the timeline into `index.html`, so opening the file directly works.
+
+```bash
+python -m pipeline open output/romania-2026/presentation
+```
+
+Or open `presentation/index.html` in a browser after a fresh `run`.
+
+Already-normalized outputs are reused on re-run (`reuse` / skip work when possible).
+
 ---
 
-## Preferenssit (maku-kerros)
+## Preferences (taste layer)
 
-Kopioi pohja tai anna CLI:n luoda:
+Copy the template or let the CLI create one:
 
 ```bash
 cp preferences.example.yaml preferences.yaml
 ```
 
-`preferences.yaml` on **gitignored**. Esimerkkikentät:
+`preferences.yaml` is **gitignored**. Useful fields:
 
-- `target_duration_min` — esim. 45
-- `image_seconds` — esim. 8
-- `taste_prompt` — vapaa teksti (suosi / vältä)
-- `day_label_format` — oletus `%d/%m/%Y`
-- sanitointirajat: `blur_threshold`, `duplicate_hash_distance`
+- `target_duration_min` — e.g. 45
+- `image_seconds` — e.g. 8
+- `taste_prompt` — free text (prefer / avoid)
+- `day_label_format` — default `%d/%m/%Y`
+- sanitize knobs: `blur_threshold`, `duplicate_hash_distance`
 
-Esimerkkimakupromptti: `prompts/examples/taste_fi.txt`
+Example taste prompt: `prompts/examples/taste_fi.txt`
 
 ---
 
-## Tulosteet (`output/...`, ei gittiin)
+## Outputs (`output/...`, not committed)
 
 ```text
-output/<matka>/
-  normalized/          # oikaistut mediat
-  rejects/             # blur / duplikaatit
-  manifest_*.json      # välitulokset
+output/<trip>/
+  _extracted/          # unpacked zips (derived; safe to delete)
+  normalized/          # oriented media
+  rejects/             # blur / duplicates
+  manifest_*.json      # intermediate results
   presentation/
-    index.html         # avaa tämä
+    index.html         # open this
     timeline.json
     media/
 ```
 
 ---
 
-## Tietosuoja
+## Privacy
 
-Älä commitoi:
+Do not commit:
 
-- `input/` (media)
+- `input/` (media / zips)
 - `output/`
 - `preferences.yaml`
 - `.env`
 
-Julkisessa repossa on vain moottori, templatet ja esimerkkipromptit.
+The public repo only contains the engine, templates, and example prompts.
 
 ---
 
-## Seuraavat askeleet (roadmap)
+## Roadmap
 
-- Vision-API-kuratointi käyttäen `taste_prompt`ia
-- HEIC-tuki (`pillow-heif`) oletuksena
-- Keep/drop-palaute → preferenssien hienosäätö
-- Yksi renderöity MP4-export (valinnainen)
+- Vision-API curation using `taste_prompt`
+- Keep/drop feedback loop to refine preferences
+- Optional single rendered MP4 export
 
 ---
 
-## Lisenssi
+## License
 
 MIT

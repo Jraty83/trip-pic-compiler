@@ -158,19 +158,26 @@
     else if (e.key === "ArrowLeft") btnPrev.click();
   });
 
-  fetch("timeline.json")
-    .then((r) => r.json())
-    .then((data) => {
-      slides = data.slides || [];
-      if (!slides.length) {
-        emptyEl.hidden = false;
-        updateChrome();
-        return;
-      }
-      goTo(0, false);
-    })
-    .catch(() => {
+  function boot(data) {
+    slides = (data && data.slides) || [];
+    if (!slides.length) {
       emptyEl.hidden = false;
-      emptyEl.textContent = "timeline.json puuttuu — aja pipeline.";
-    });
+      updateChrome();
+      return;
+    }
+    goTo(0, false);
+  }
+
+  // Embedded timeline works with file:// (Chrome blocks fetch of local JSON).
+  if (window.__TIMELINE__) {
+    boot(window.__TIMELINE__);
+  } else {
+    fetch("timeline.json")
+      .then((r) => r.json())
+      .then(boot)
+      .catch(() => {
+        emptyEl.hidden = false;
+        emptyEl.textContent = "timeline.json puuttuu — aja pipeline.";
+      });
+  }
 })();
